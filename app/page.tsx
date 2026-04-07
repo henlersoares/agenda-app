@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -15,8 +15,8 @@ export default function Home() {
   const [title, setTitle] = useState("");
   const [selectedDateTime, setSelectedDateTime] = useState(new Date());
   const [events, setEvents] = useState<EventType[]>([]);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false); // ← CONSTANTE AQUI!
-  const datePickerRef = useRef(null); // ← REFERÊNCIA AQUI!
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null); // Mês selecionado
 
   useEffect(() => {
     const eventosSalvos = localStorage.getItem("events");
@@ -74,13 +74,67 @@ export default function Home() {
     setEvents((prev) => prev.filter((event) => event.id !== id));
   }
 
+  // Função para filtrar eventos por mês
+  function filterEventsByMonth(month: number | null) {
+    if (month === null) return events;
+    return events.filter(event => event.dateTime.getMonth() === month);
+  }
+
+  // Função para obter nome do mês
+  function getMonthName(month: number) {
+    const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+                    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    return months[month];
+  }
+
+  // Pegar meses únicos que têm compromissos
+  const monthsWithEvents = [...new Set(events.map(event => event.dateTime.getMonth()))];
+  
+  const filteredEvents = filterEventsByMonth(selectedMonth);
+  const currentMonthName = selectedMonth !== null ? getMonthName(selectedMonth) : "Todos";
+
   return (
     <div className="min-h-screen bg-gray-900 text-white flex justify-center p-10">
       <div className="w-full max-w-xl">
         <h1 className="text-3xl font-bold mb-6">Minha Agenda</h1>
 
+        {/* Filtro por meses */}
+        <div className="mb-6">
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setSelectedMonth(null)}
+              className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                selectedMonth === null 
+                  ? 'bg-blue-500 text-white' 
+                  : 'bg-gray-700 hover:bg-gray-600'
+              }`}
+            >
+              Todos
+            </button>
+            {monthsWithEvents.map(month => (
+              <button
+                key={month}
+                onClick={() => setSelectedMonth(month)}
+                className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                  selectedMonth === month 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-gray-700 hover:bg-gray-600'
+                }`}
+              >
+                {getMonthName(month)}
+              </button>
+            ))}
+          </div>
+          {selectedMonth !== null && monthsWithEvents.length > 0 && (
+            <p className="text-xs text-gray-400 mt-2">
+              Mostrando compromissos de {currentMonthName}
+            </p>
+          )}
+        </div>
+
+        {/* Formulário de adicionar */}
         <div className="relative">
-          <div className="relative flex gap-2">
+          <div className="flex gap-2">
             <div className="relative flex-1">
               <input
                 className="w-full p-3 rounded bg-gray-800 border border-gray-700 outline-none focus:border-blue-500 pr-10"
@@ -90,7 +144,6 @@ export default function Home() {
                 onKeyPress={(e) => e.key === 'Enter' && handleAddEvent()}
               />
 
-              {/* Botão do calendário (ícone) */}
               <button
                 onClick={() => setIsCalendarOpen(!isCalendarOpen)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
@@ -107,14 +160,13 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Calendário flutuante que aparece quando clica no ícone */}
+          {/* Calendário flutuante */}
           {isCalendarOpen && (
             <div className="absolute left-0 mt-2 z-50 shadow-lg rounded overflow-hidden bg-gray-800">
               <DatePicker
                 selected={selectedDateTime}
                 onChange={(date: Date | null) => {
                   if (date) setSelectedDateTime(date);
-                  // Removeu o setIsCalendarOpen(false)
                 }}
                 showTimeSelect
                 dateFormat="dd/MM/yyyy HH:mm"
@@ -134,13 +186,16 @@ export default function Home() {
           )}
         </div>
 
+        {/* Lista de compromissos filtrada */}
         <ul className="mt-6 space-y-3">
-          {events.length === 0 ? (
+          {filteredEvents.length === 0 ? (
             <p className="text-gray-400 text-center py-8">
-              Não há compromissos agendados.
+              {selectedMonth !== null 
+                ? `Nenhum compromisso em ${currentMonthName}`
+                : "Não há compromissos agendados."}
             </p>
           ) : (
-            events.map((event) => (
+            filteredEvents.map((event) => (
               <li
                 key={event.id}
                 className="flex justify-between items-center bg-gray-800 p-3 rounded hover:bg-gray-750 transition-colors"
@@ -186,10 +241,18 @@ export default function Home() {
           )}
         </ul>
 
+        {/* Totais */}
         {events.length > 0 && (
-          <div className="mt-4 text-sm text-gray-400 text-center">
-            Total: {events.length} compromisso(s) |
-            Pendentes: {events.filter(e => !e.completed).length}
+          <div className="mt-4 text-sm text-gray-400 text-center space-y-1">
+            <div>
+              Total: {events.length} compromisso(s) | 
+              Pendentes: {events.filter(e => !e.completed).length}
+            </div>
+            {selectedMonth !== null && (
+              <div className="text-xs">
+                Neste mês: {filteredEvents.length} compromisso(s)
+              </div>
+            )}
           </div>
         )}
       </div>
